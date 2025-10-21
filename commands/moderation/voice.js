@@ -77,21 +77,7 @@ module.exports = {
             .setDescription('Le membre à bannir du vocal')
             .setRequired(true)
         )
-        .addStringOption(opt =>
-          opt.setName('scope')
-            .setDescription('Portée du ban: canal ou serveur')
-            .addChoices(
-              { name: 'canal', value: 'channel' },
-              { name: 'serveur', value: 'server' }
-            )
-            .setRequired(false)
-        )
-        .addChannelOption(opt =>
-          opt.setName('channel')
-            .setDescription('Canal vocal cible (si différent du canal actuel)')
-            .addChannelTypes(ChannelType.GuildVoice, ChannelType.GuildStageVoice)
-            .setRequired(false)
-        )
+        // Retirer scope et channel: le ban est toujours serveur
         .addStringOption(opt =>
           opt.setName('reason')
             .setDescription('Raison')
@@ -106,21 +92,7 @@ module.exports = {
             .setDescription('Le membre à débanni du vocal')
             .setRequired(true)
         )
-        .addStringOption(opt =>
-          opt.setName('scope')
-            .setDescription('Portée: canal ou serveur')
-            .addChoices(
-              { name: 'canal', value: 'channel' },
-              { name: 'serveur', value: 'server' }
-            )
-            .setRequired(false)
-        )
-        .addChannelOption(opt =>
-          opt.setName('channel')
-            .setDescription('Canal vocal cible (si applicable)')
-            .addChannelTypes(ChannelType.GuildVoice, ChannelType.GuildStageVoice)
-            .setRequired(false)
-        )
+        // Retirer scope et channel: l’unban est toujours serveur
         .addStringOption(opt =>
           opt.setName('reason')
             .setDescription('Raison')
@@ -212,8 +184,9 @@ module.exports = {
     // Sous-commande: BAN
     if (sub === 'ban') {
       const target = interaction.options.getMember('user');
-      const scope = interaction.options.getString('scope') || 'channel';
-      let channel = interaction.options.getChannel('channel');
+      // Force ban vocal à l’échelle serveur (toutes les vocals)
+      let scope = 'server';
+      let channel = null;
       const reason = interaction.options.getString('reason') || LanguageManager.get(lang, 'common.no_reason') || 'Aucune raison fournie';
 
       if (!target) {
@@ -221,20 +194,22 @@ module.exports = {
         return respondSmart(interaction, payload, acknowledgedExternally);
       }
 
-      // Déterminer canal si scope=channel
-      if (scope === 'channel') {
-        if (!channel) channel = target.voice?.channel || null;
-        if (!channel) {
-          const payload = await ComponentsV3.errorEmbed(interaction.guild.id, 'commands.lock.error', {}, true, lang);
-          payload.components[0].components.unshift({ type: 10, content: '### ❌ Aucun canal vocal fourni et le membre n’est pas en vocal.' });
-          return respondSmart(interaction, payload, acknowledgedExternally);
-        }
-      }
-
       // Permissions bot pour modifier overwrites
       if (!interaction.guild.members.me.permissions.has(PermissionFlagsBits.ManageChannels)) {
         const payload = BotEmbeds.createBotNoPermissionEmbed(interaction.guild.id, lang);
         return respondSmart(interaction, payload, acknowledgedExternally);
+      }
+
+      // Si le membre est en vocal, tenter de le déconnecter immédiatement
+      const tv = target.voice;
+      if (tv?.channel) {
+        try {
+          if (typeof tv.disconnect === 'function') {
+            await tv.disconnect(reason);
+          } else {
+            await tv.setChannel(null, reason);
+          }
+        } catch (_) {}
       }
 
       try {
@@ -244,18 +219,18 @@ module.exports = {
             await ch.permissionOverwrites.edit(target.id, { Connect: false }, { reason });
           }
         } else {
-          await channel.permissionOverwrites.edit(target.id, { Connect: false }, { reason });
+          await channel?.permissionOverwrites.edit(target.id, { Connect: false }, { reason });
         }
 
         const successPayload = BotEmbeds.createGenericSuccessEmbed(
-          `${interaction.user.toString()} a banni ${target.toString()} du vocal (${scope === 'server' ? 'serveur' : 'canal'}) pour ${reason}`,
+          `${interaction.user.toString()} a banni ${target.toString()} de toutes les vocals du serveur pour ${reason}`,
           interaction.guild.id
         );
         try {
           await interaction.followUp({
             embeds: [{
-              title: '✅ Ban vocal appliqué',
-              description: `${interaction.user.toString()} a banni ${target.toString()} du vocal (${scope === 'server' ? 'serveur' : 'canal'}) pour ${reason}`,
+              title: '✅ Ban vocal serveur appliqué',
+              description: `${interaction.user.toString()} a banni ${target.toString()} de toutes les vocals du serveur pour ${reason}`,
               color: 0x57F287
             }]
           });
@@ -263,7 +238,7 @@ module.exports = {
         return respondSmart(interaction, successPayload, acknowledgedExternally);
       } catch (error) {
         const payload = await ComponentsV3.errorEmbed(interaction.guild.id, 'commands.lock.error', {}, true, lang);
-        payload.components[0].components.unshift({ type: 10, content: '### ❌ Erreur lors de l’application du ban vocal.' });
+        payload.components[0].components.unshift({ type: 10, content: '### ❌ Erreur lors de l’application du ban vocal serveur.' });
         return respondSmart(interaction, payload, acknowledgedExternally);
       }
     }
@@ -271,22 +246,11 @@ module.exports = {
     // Sous-commande: UNBAN
     if (sub === 'unban') {
       const target = interaction.options.getMember('user');
-      const scope = interaction.options.getString('scope') || 'channel';
-      let channel = interaction.options.getChannel('channel');
       const reason = interaction.options.getString('reason') || LanguageManager.get(lang, 'common.no_reason') || 'Aucune raison fournie';
 
       if (!target) {
         const payload = await ComponentsV3.errorEmbed(interaction.guild.id, 'commands.kick.error_not_found', {}, true, lang);
         return respondSmart(interaction, payload, acknowledgedExternally);
-      }
-
-      if (scope === 'channel') {
-        if (!channel) channel = target.voice?.channel || null;
-        if (!channel) {
-          const payload = await ComponentsV3.errorEmbed(interaction.guild.id, 'commands.lock.error', {}, true, lang);
-          payload.components[0].components.unshift({ type: 10, content: '### ❌ Aucun canal vocal fourni et le membre n’est pas en vocal.' });
-          return respondSmart(interaction, payload, acknowledgedExternally);
-        }
       }
 
       if (!interaction.guild.members.me.permissions.has(PermissionFlagsBits.ManageChannels)) {
@@ -295,28 +259,24 @@ module.exports = {
       }
 
       try {
-        if (scope === 'server') {
-          const targets = interaction.guild.channels.cache.filter(c => c.type === ChannelType.GuildVoice || c.type === ChannelType.GuildStageVoice);
-          for (const [_, ch] of targets) {
-            // Revenir à hérité (null) ou supprimer overwrite
-            const ov = ch.permissionOverwrites.resolve(target.id);
-            if (ov) {
-              await ch.permissionOverwrites.edit(target.id, { Connect: null }, { reason });
-            }
+        // Unban vocal à l’échelle serveur: retirer Connect deny sur tous les salons vocaux
+        const targets = interaction.guild.channels.cache.filter(c => c.type === ChannelType.GuildVoice || c.type === ChannelType.GuildStageVoice);
+        for (const [_, ch] of targets) {
+          const ov = ch.permissionOverwrites.resolve(target.id);
+          if (ov) {
+            await ch.permissionOverwrites.edit(target.id, { Connect: null }, { reason });
           }
-        } else {
-          await channel.permissionOverwrites.edit(target.id, { Connect: null }, { reason });
         }
 
         const successPayload = BotEmbeds.createGenericSuccessEmbed(
-          `${interaction.user.toString()} a débanni ${target.toString()} du vocal (${scope === 'server' ? 'serveur' : 'canal'}) pour ${reason}`,
+          `${interaction.user.toString()} a retiré le ban vocal de ${target.toString()} sur toutes les vocals du serveur pour ${reason}`,
           interaction.guild.id
         );
         try {
           await interaction.followUp({
             embeds: [{
-              title: '✅ Unban vocal appliqué',
-              description: `${interaction.user.toString()} a débanni ${target.toString()} du vocal (${scope === 'server' ? 'serveur' : 'canal'}) pour ${reason}`,
+              title: '✅ Unban vocal serveur appliqué',
+              description: `${interaction.user.toString()} a retiré le ban vocal de ${target.toString()} sur toutes les vocals du serveur pour ${reason}`,
               color: 0x57F287
             }]
           });
@@ -324,7 +284,7 @@ module.exports = {
         return respondSmart(interaction, successPayload, acknowledgedExternally);
       } catch (error) {
         const payload = await ComponentsV3.errorEmbed(interaction.guild.id, 'commands.unlock.error', {}, true, lang);
-        payload.components[0].components.unshift({ type: 10, content: '### ❌ Erreur lors du retrait du ban vocal.' });
+        payload.components[0].components.unshift({ type: 10, content: '### ❌ Erreur lors du retrait du ban vocal serveur.' });
         return respondSmart(interaction, payload, acknowledgedExternally);
       }
     }
