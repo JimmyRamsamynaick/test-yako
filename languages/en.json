@@ -406,6 +406,19 @@
       "header": "Total members with warnings: {total}",
       "empty": "No member has warnings.",
       "warn_count_label": "warning(s)"
+    },
+    "settickets": {
+        "description": "Configure the ticket system",
+        "setcategory_description": "Set the parent category for tickets",
+        "category_option": "Category that will contain tickets",
+        "success_title": "✅ Tickets configured",
+        "success": "Ticket category set to {category}"
+    },
+    "ticketpanel": {
+        "description": "Send a ticket panel",
+        "title": "🎫 Support Center",
+        "content": "Choose a ticket category below.",
+        "footer": "Staff will reply shortly."
     }
     },
     "ping": {
@@ -617,6 +630,48 @@
         "channel_lock_details": "**Channel:** {channel}\n**Moderator:** {moderator}\n**Reason:** {reason}",
         "channel_unlock": "🔓 Channel {channel} unlocked",
         "channel_unlock_details": "**Channel:** {channel}\n**Moderator:** {moderator}\n**Reason:** {reason}"
+    },
+    "tickets": {
+        "open_title": "🎫 Ticket opened",
+        "panel_title": "Assistance",
+        "panel_content": "Tickets exist to help you!\nOur team strives to keep this server calm and enjoyable for everyone.\nThis system was created to make it easier to reach us.\n\n⚠️ A ticket may take time to be handled — please be patient!\nAny abuse (spam, unnecessary requests, etc.) will be strictly sanctioned.\n\n**Other sections**\n• Recruitment: Want to join us?\n• Report: Something to report?\n• Partnership: Let's collaborate!\n• Owners: Need the founders directly?",
+        "select_category_placeholder": "Choose your request category",
+        "close_button_label": "Close ticket",
+        "created_confirmation": "Ticket created",
+        "errors": {
+            "no_category_setup": "Ticket category not configured. Use /settickets.",
+            "invalid_category": "Configured category not found.",
+            "channel_not_found": "Ticket channel not found."
+        },
+        "logs": {
+            "created": "Ticket created by {user} in #{channel} ({category})",
+            "closed": "Ticket closed by {user} in #{channel}"
+        },
+        "categories": {
+            "support": {
+                "label": "Support",
+                "description": "Request help from staff"
+            },
+            "report": {
+                "label": "Report",
+                "description": "Report a problem or a user"
+            },
+            "other": {
+                "label": "Other",
+                "description": "Other request"
+            },
+            "recrutement": {
+                "label": "Recruitment",
+                "description": "Want to join us?"
+            },
+            "partenariat": {
+                "label": "Partnership",
+                "description": "Let's collaborate!"
+            },
+            "owners": {
+                "label": "Owners",
+                "description": "Need the founders directly?"
+            }
+        }
     }
-    
 }
