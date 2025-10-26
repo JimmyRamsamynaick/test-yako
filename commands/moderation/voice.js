@@ -103,7 +103,7 @@ module.exports = {
   async execute(interaction) {
     let acknowledgedExternally = false;
     try {
-      await interaction.deferReply({ ephemeral: true });
+      await interaction.deferReply();
     } catch (e) {
       if (String(e?.message || '').includes('acknowledged')) {
         acknowledgedExternally = true;
@@ -118,7 +118,7 @@ module.exports = {
 
     // Vérification d’usage (MoveMembers OU rôle staff)
     if (!canUse(interaction.member)) {
-      const err = BotEmbeds.createNoPermissionEmbed(interaction.guild.id, lang);
+      const err = await ComponentsV3.errorEmbed(interaction.guild.id, 'errors.no_permission', {}, false, lang);
       return respondSmart(interaction, err, acknowledgedExternally);
     }
 
@@ -128,7 +128,7 @@ module.exports = {
       const reason = interaction.options.getString('reason') || LanguageManager.get(lang, 'common.no_reason') || 'Aucune raison fournie';
 
       if (!target) {
-        const payload = await ComponentsV3.errorEmbed(interaction.guild.id, 'commands.kick.error_not_found', {}, true, lang);
+        const payload = await ComponentsV3.errorEmbed(interaction.guild.id, 'commands.kick.error_not_found', {}, false, lang);
         return respondSmart(interaction, payload, acknowledgedExternally);
       }
 
@@ -136,19 +136,17 @@ module.exports = {
       if (!voice || !voice.channel) {
         const payload = await ComponentsV3.errorEmbed(
           interaction.guild.id,
-          'errors.no_permission',
+          'commands.voice.not_in_voice',
           {},
-          true,
+          false,
           lang
         );
-        // Message explicite sans nouvelle clé de langue
-        payload.components[0].components.unshift({ type: 10, content: '### ❌ L’utilisateur n’est pas en vocal.' });
         return respondSmart(interaction, payload, acknowledgedExternally);
       }
 
       // Permissions bot
       if (!interaction.guild.members.me.permissions.has(PermissionFlagsBits.MoveMembers)) {
-        const payload = BotEmbeds.createBotNoPermissionEmbed(interaction.guild.id, lang);
+        const payload = await ComponentsV3.errorEmbed(interaction.guild.id, 'errors.bot_no_permission', {}, false, lang);
         return respondSmart(interaction, payload, acknowledgedExternally);
       }
 
@@ -160,23 +158,21 @@ module.exports = {
           await voice.setChannel(null, reason);
         }
 
-        const successPayload = BotEmbeds.createGenericSuccessEmbed(
-          `${interaction.user.toString()} a expulsé ${target.toString()} du vocal pour ${reason}`,
-          interaction.guild.id
+        const successMessage = LanguageManager.get(lang, 'commands.voice.kick_success', {
+          executor: interaction.user.toString(),
+          user: target.toString(),
+          reason
+        });
+        const successPayload = await ComponentsV3.successEmbed(
+          interaction.guild.id,
+          'commands.voice.kick_success_title',
+          successMessage,
+          false,
+          lang
         );
-        // Message public d’annonce (non-éphémère)
-        try {
-          await interaction.followUp({
-            embeds: [{
-              title: '✅ Expulsion vocale',
-              description: `${interaction.user.toString()} a expulsé ${target.toString()} du vocal pour ${reason}`,
-              color: 0x57F287
-            }]
-          });
-        } catch (_) {}
         return respondSmart(interaction, successPayload, acknowledgedExternally);
       } catch (error) {
-        const payload = await ComponentsV3.errorEmbed(interaction.guild.id, 'commands.kick.error', {}, true, lang);
+        const payload = await ComponentsV3.errorEmbed(interaction.guild.id, 'commands.voice.kick_error', {}, false, lang);
         return respondSmart(interaction, payload, acknowledgedExternally);
       }
     }
@@ -190,26 +186,14 @@ module.exports = {
       const reason = interaction.options.getString('reason') || LanguageManager.get(lang, 'common.no_reason') || 'Aucune raison fournie';
 
       if (!target) {
-        const payload = await ComponentsV3.errorEmbed(interaction.guild.id, 'commands.kick.error_not_found', {}, true, lang);
+        const payload = await ComponentsV3.errorEmbed(interaction.guild.id, 'commands.kick.error_not_found', {}, false, lang);
         return respondSmart(interaction, payload, acknowledgedExternally);
       }
 
       // Permissions bot pour modifier overwrites
       if (!interaction.guild.members.me.permissions.has(PermissionFlagsBits.ManageChannels)) {
-        const payload = BotEmbeds.createBotNoPermissionEmbed(interaction.guild.id, lang);
+        const payload = await ComponentsV3.errorEmbed(interaction.guild.id, 'errors.bot_no_permission', {}, false, lang);
         return respondSmart(interaction, payload, acknowledgedExternally);
-      }
-
-      // Si le membre est en vocal, tenter de le déconnecter immédiatement
-      const tv = target.voice;
-      if (tv?.channel) {
-        try {
-          if (typeof tv.disconnect === 'function') {
-            await tv.disconnect(reason);
-          } else {
-            await tv.setChannel(null, reason);
-          }
-        } catch (_) {}
       }
 
       try {
@@ -222,23 +206,21 @@ module.exports = {
           await channel?.permissionOverwrites.edit(target.id, { Connect: false }, { reason });
         }
 
-        const successPayload = BotEmbeds.createGenericSuccessEmbed(
-          `${interaction.user.toString()} a banni ${target.toString()} de toutes les vocals du serveur pour ${reason}`,
-          interaction.guild.id
+        const successMessage = LanguageManager.get(lang, 'commands.voice.ban_success', {
+          executor: interaction.user.toString(),
+          user: target.toString(),
+          reason
+        });
+        const successPayload = await ComponentsV3.successEmbed(
+          interaction.guild.id,
+          'commands.voice.ban_success_title',
+          successMessage,
+          false,
+          lang
         );
-        try {
-          await interaction.followUp({
-            embeds: [{
-              title: '✅ Ban vocal serveur appliqué',
-              description: `${interaction.user.toString()} a banni ${target.toString()} de toutes les vocals du serveur pour ${reason}`,
-              color: 0x57F287
-            }]
-          });
-        } catch (_) {}
         return respondSmart(interaction, successPayload, acknowledgedExternally);
       } catch (error) {
-        const payload = await ComponentsV3.errorEmbed(interaction.guild.id, 'commands.lock.error', {}, true, lang);
-        payload.components[0].components.unshift({ type: 10, content: '### ❌ Erreur lors de l’application du ban vocal serveur.' });
+        const payload = await ComponentsV3.errorEmbed(interaction.guild.id, 'commands.voice.ban_error', {}, false, lang);
         return respondSmart(interaction, payload, acknowledgedExternally);
       }
     }
@@ -249,12 +231,12 @@ module.exports = {
       const reason = interaction.options.getString('reason') || LanguageManager.get(lang, 'common.no_reason') || 'Aucune raison fournie';
 
       if (!target) {
-        const payload = await ComponentsV3.errorEmbed(interaction.guild.id, 'commands.kick.error_not_found', {}, true, lang);
+        const payload = await ComponentsV3.errorEmbed(interaction.guild.id, 'commands.kick.error_not_found', {}, false, lang);
         return respondSmart(interaction, payload, acknowledgedExternally);
       }
 
       if (!interaction.guild.members.me.permissions.has(PermissionFlagsBits.ManageChannels)) {
-        const payload = BotEmbeds.createBotNoPermissionEmbed(interaction.guild.id, lang);
+        const payload = await ComponentsV3.errorEmbed(interaction.guild.id, 'errors.bot_no_permission', {}, false, lang);
         return respondSmart(interaction, payload, acknowledgedExternally);
       }
 
@@ -268,23 +250,21 @@ module.exports = {
           }
         }
 
-        const successPayload = BotEmbeds.createGenericSuccessEmbed(
-          `${interaction.user.toString()} a retiré le ban vocal de ${target.toString()} sur toutes les vocals du serveur pour ${reason}`,
-          interaction.guild.id
+        const successMessage = LanguageManager.get(lang, 'commands.voice.unban_success', {
+          executor: interaction.user.toString(),
+          user: target.toString(),
+          reason
+        });
+        const successPayload = await ComponentsV3.successEmbed(
+          interaction.guild.id,
+          'commands.voice.unban_success_title',
+          successMessage,
+          false,
+          lang
         );
-        try {
-          await interaction.followUp({
-            embeds: [{
-              title: '✅ Unban vocal serveur appliqué',
-              description: `${interaction.user.toString()} a retiré le ban vocal de ${target.toString()} sur toutes les vocals du serveur pour ${reason}`,
-              color: 0x57F287
-            }]
-          });
-        } catch (_) {}
         return respondSmart(interaction, successPayload, acknowledgedExternally);
       } catch (error) {
-        const payload = await ComponentsV3.errorEmbed(interaction.guild.id, 'commands.unlock.error', {}, true, lang);
-        payload.components[0].components.unshift({ type: 10, content: '### ❌ Erreur lors du retrait du ban vocal serveur.' });
+        const payload = await ComponentsV3.errorEmbed(interaction.guild.id, 'commands.voice.unban_error', {}, false, lang);
         return respondSmart(interaction, payload, acknowledgedExternally);
       }
     }
